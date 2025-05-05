@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
 import Head from "next/head";
-import Chatbot from './Chatbot';
+import Chatbot from "./Chatbot";
 
 const ShriRamTraders = () => {
+  const [chatbotOpen, setChatbotOpen] = useState<boolean>(false);
   const [darkMode, setDarkMode] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -45,14 +46,13 @@ const ShriRamTraders = () => {
   };
 
   return (
-    <div className='relative bg-gray-50 dark:bg-gray-900 transition-colors duration-300 min-h-screen'>
-      <div className=''>
-        <Chatbot/>
+    <div className="relative bg-gray-50 dark:bg-gray-900 transition-colors duration-300 min-h-screen">
+      <div className="fixed right-0 bottom-0 z-20">
+        <Chatbot />
       </div>
       <Head>
         <title>Shri Ram Traders | Recycled Cotton Waste Exporters</title>
-        <meta
-          name="description" />
+        <meta name="description" />
       </Head>
 
       {/* Navigation */}
