@@ -46,7 +46,7 @@ const ShriRamTraders = () => {
 
       // Watch for system preference changes
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const handleChange = (e) => setDarkMode(e.matches);
+      const handleChange = (e: MediaQueryListEvent) => setDarkMode(e.matches);
       mediaQuery.addEventListener("change", handleChange);
       return () => mediaQuery.removeEventListener("change", handleChange);
     }
