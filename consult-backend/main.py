@@ -2,21 +2,20 @@ import json
 import os
 
 import dotenv
+import razorpay
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 from pydantic import BaseModel
 
+from system_prompt import PROMPT
+
 dotenv.load_dotenv(".env")
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
-if not GROQ_API_KEY:
-    raise ValueError("Groq API key is missing. Set it in the .env file.")
 
 app = FastAPI()
 
+client = razorpay.Client(auth=(os.getenv("RAZORPAY_KEY_ID"), os.getenv("RAZORPAY_KEY_SECRET")))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,34 +24,97 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Define the system message with the provided company content
-system_message = os.getenv("SYSTEM_MESSAGE")
-# Initialize the LLM
-llm = ChatGroq(model_name="llama3-8b-8192", temperature=0.7, api_key=GROQ_API_KEY)
+llm = ChatGroq(
+    model_name="llama3-8b-8192",
+    temperature=0.3,  # Lower temperature for more consistent JSON
+    api_key=os.getenv("GROQ_API_KEY")
+)
 
+isBuyLoop = False
 
-# Define request schema
 class QueryRequest(BaseModel):
     userQuery: str
-    session: list[str] | None = None  # list of past exchanges if needed
 
+async def create_order(user_id,quantity):
+    try:
+        client.set_app_details({"title" : "test", "version" : "beta"})
+        amount = quantity * 5000
+        data = {
+            "amount":  amount,
+            "currency": "INR",
+            "receipt": user_id,
+        }
+        data = client.order.create(data=data) # pyright: ignore
+        return data['id']
+    except Exception as e:
+        print(e)
+
+def create_prompt(user_query: str) -> str:
+    return f"""
+    {PROMPT['system_message']}
+    
+    Company Information:
+    {json.dumps(PROMPT['company_info'], indent=2)}
+    
+    User Query: {user_query}
+    
+    Respond with ONLY the JSON object containing 'response' and 'buy' keys.
+    DO NOT include any other text or explanation outside the JSON.
+    Example response:
+    {{"response": "answer text", "buy": false}}
+    """
 
 @app.post("/query")
 async def query(request: QueryRequest):
     try:
-        # Construct the prompt without session history
-        full_prompt = f"{system_message}\nUser: {request.userQuery}\nBot:"
-
-        # Use simple prompt template
-        prompt = ChatPromptTemplate.from_template(full_prompt)
-
-        # Convert the prompt to a string or compatible format
-        prompt_value = prompt.format()
-
-        # Invoke the LLM
-        result = llm.invoke(prompt_value)
-
-        return {"response": result.content}
+        full_prompt = create_prompt(request.userQuery)
+        result = llm.invoke(full_prompt)
+        global isBuyLoop
+        if isBuyLoop:
+            try:
+                amount = int(request.userQuery)
+                print(amount)
+                id = await create_order("temp", amount * 10)
+                isBuyLoop = False
+                return {
+                    "response" : "",
+                    "buy": True,
+                    "orderId": id,
+                    "amount" : amount
+                }
+            except ValueError:
+                return {
+                    "response" : "The amount should be a number"
+                }
+        if("true" in result.content):
+            isBuyLoop = True
+            return {
+                "response" : "Please enter the amount you want to pay...",
+                "buy" : True
+            }
+        # First try to parse the direct response
+        try:
+            response = json.loads(result.content)
+            if isinstance(response, dict):
+                return response
+        except json.JSONDecodeError:
+            pass
+        
+        # If direct parse fails, look for JSON in the string
+        try:
+            # Find the first { and last } in the response
+            json_start = result.content.find('{')
+            json_end = result.content.rfind('}') + 1
+            if json_start != -1 and json_end != -1:
+                json_str = result.content[json_start:json_end]
+                response = json.loads(json_str)
+                if isinstance(response, dict):
+                    return response
+        except (json.JSONDecodeError, ValueError):
+            pass
+        
+        # If all else fails, return the raw content
+        return {"response": result.content, "buy": False}
 
     except Exception as e:
-        return {"error": str(e)}
+        return {"response": f"Error processing request: {str(e)}", "buy": False}

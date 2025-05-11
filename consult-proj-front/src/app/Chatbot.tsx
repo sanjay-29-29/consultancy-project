@@ -1,9 +1,14 @@
 import { useState, useEffect, useRef, FormEvent } from "react";
-import axios from "axios";
+import { axiosClient } from "./AxiosSetup";
+import Script from "next/script";
+import { PaymentButton } from "./PaymentButton";
 
 interface ChatMessage {
   user: "user" | "bot";
   message: string;
+  buy?: boolean;
+  orderId?: string;
+  amount?: number;
 }
 
 function Chatbot() {
@@ -30,18 +35,14 @@ function Chatbot() {
 
     try {
       console.log(process.env.NEXT_PUBLIC_BACKEND_SERVER);
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_BACKEND_SERVER}/query`,
-        {
-          userQuery: input,
-        },
-      );
+      const response = await axiosClient.post(`/query`, {
+        userQuery: input,
+      });
 
       const botMessage: ChatMessage = {
         user: "bot",
-        message:
-          response.data.response ||
-          "I didn't get that. Could you please rephrase?",
+        message: response.data.response,
+        buy: response.data.buy || false,
       };
       setMessages((prev) => [...prev, botMessage]);
     } catch (e) {
@@ -61,6 +62,7 @@ function Chatbot() {
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" />
       {chatbotOpen ? (
         <div className="relative">
           <div className="bg-white max-h-[500px] dark:bg-gray-800 rounded-xl shadow-xl flex flex-col w-[400px] max-w-md overflow-hidden border border-green-200 dark:border-gray-700">
@@ -98,7 +100,11 @@ function Chatbot() {
                         : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none"
                     }`}
                   >
-                    {msg.message}
+                    {(msg.buy === undefined || msg.buy === false) &&
+                      msg.message}
+                    {msg.buy === true && (
+                      <PaymentButton amount={msg.amount!} id={msg.orderId!} />
+                    )}
                   </div>
                 </div>
               ))}
