@@ -38,7 +38,7 @@ class QueryRequest(BaseModel):
 async def create_order(user_id,quantity):
     try:
         client.set_app_details({"title" : "test", "version" : "beta"})
-        amount = quantity * 5000
+        amount = quantity * 100
         data = {
             "amount":  amount,
             "currency": "INR",
@@ -67,32 +67,32 @@ def create_prompt(user_query: str) -> str:
 @app.post("/query")
 async def query(request: QueryRequest):
     try:
-        full_prompt = create_prompt(request.userQuery)
-        result = llm.invoke(full_prompt)
-        global isBuyLoop
+        global isBuyLoop #ignore
         if isBuyLoop:
             try:
                 amount = int(request.userQuery)
                 print(amount)
-                id = await create_order("temp", amount * 10)
+                order_id = await create_order("temp", amount)
                 isBuyLoop = False
                 return {
                     "response" : "",
                     "buy": True,
-                    "orderId": id,
+                    "orderId": order_id,
                     "amount" : amount
                 }
             except ValueError:
                 return {
                     "response" : "The amount should be a number"
                 }
+        full_prompt = create_prompt(request.userQuery)
+        result = llm.invoke(full_prompt)
+
         if("true" in result.content):
             isBuyLoop = True
             return {
                 "response" : "Please enter the amount you want to pay...",
-                "buy" : True
+                "buy" : False 
             }
-        # First try to parse the direct response
         try:
             response = json.loads(result.content)
             if isinstance(response, dict):
@@ -100,9 +100,7 @@ async def query(request: QueryRequest):
         except json.JSONDecodeError:
             pass
         
-        # If direct parse fails, look for JSON in the string
         try:
-            # Find the first { and last } in the response
             json_start = result.content.find('{')
             json_end = result.content.rfind('}') + 1
             if json_start != -1 and json_end != -1:
@@ -113,7 +111,6 @@ async def query(request: QueryRequest):
         except (json.JSONDecodeError, ValueError):
             pass
         
-        # If all else fails, return the raw content
         return {"response": result.content, "buy": False}
 
     except Exception as e:

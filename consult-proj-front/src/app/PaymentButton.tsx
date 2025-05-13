@@ -36,7 +36,13 @@ export const PaymentButton = ({
 
   return (
     <>
-      <div onClick={checkoutHandler}>Pay Now</div>
+      <img
+        className="h-12 w-24"
+        src={
+          "https://bsmedia.business-standard.com/_media/bs/img/article/2022-07/04/full/1656922506-9167.jpg"
+        }
+        onClick={checkoutHandler}
+      />
     </>
   );
 };
