@@ -1,14 +1,19 @@
+import { Dispatch, SetStateAction } from "react";
+import { ChatMessage } from "./Chatbot";
+
 export const PaymentButton = ({
   amount,
   id,
+  setMessages
 }: {
   amount: number;
   id: string;
+  setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
 }) => {
   const checkoutHandler = async () => {
     const options = {
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
-      amount: amount,
+      amount: amount * 100,
       currency: "INR",
       name: "Payment razorpay",
       description: "Test Transaction",
@@ -24,6 +29,9 @@ export const PaymentButton = ({
       },
       theme: {
         color: "#3399cc",
+      },
+      handler: function () {
+        setMessages((msg) => [...msg , { user: "bot", message: "Payment Success"  }]); // Set success state
       },
     };
 

@@ -3,7 +3,7 @@ import { axiosClient } from "./AxiosSetup";
 import Script from "next/script";
 import { PaymentButton } from "./PaymentButton";
 
-interface ChatMessage {
+export interface ChatMessage {
   user: "user" | "bot";
   message: string;
   buy?: boolean;
@@ -103,7 +103,7 @@ function Chatbot() {
                     {(msg.buy === undefined || msg.buy === false) &&
                       msg.message}
                     {msg.buy === true && (
-                      <PaymentButton amount={msg.amount!} id={msg.orderId!} />
+                      <PaymentButton amount={msg.amount!} id={msg.orderId!} setMessages={setMessages} />
                     )}
                   </div>
                 </div>
